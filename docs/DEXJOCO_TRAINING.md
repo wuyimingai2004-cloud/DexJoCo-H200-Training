@@ -304,7 +304,8 @@ queue 先检查六项齐全、seed 独立、共同初始化路径；按上表顺
   checkpoint_step_5000/ ... checkpoint_step_20000/
 ```
 
-初始化迁移明确重置 action embedding、state embedding、action unembedding、robot tokens；
+初始化迁移明确重置 action embedding、state embedding、action unembedding、robot tokens、
+`ego4d_state_prompt`（随原生状态维度变化的 learned state prompt，保留目标模型的新初始化）；
 即使张量形状碰巧一致也不复用旧 joint14 的动作语义。
 其余共享权重必须完整且形状一致；只允许丢弃已移除旧模块和本轮禁用的深度/历史模块，
 任何其他缺失或不匹配均报错。rank 0 保存源权重 SHA256 和逐键加载/丢弃/初始化清单。

@@ -85,6 +85,24 @@ class ContractsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing"):
             select_transfer_weights({}, dst)
 
+    def test_transfer_reinitializes_robot_state_prompt_without_relaxing_backbone(self):
+        source = {"backbone.weight": torch.ones(2, 2), "ego4d_state_prompt": torch.ones(14)}
+        for dimension in (14, 22, 44):
+            with self.subTest(dimension=dimension):
+                target = {"backbone.weight": torch.zeros(2, 2),
+                          "ego4d_state_prompt": torch.zeros(dimension)}
+                selected, audit = select_transfer_weights(source, target)
+                self.assertEqual(list(selected), ["backbone.weight"])
+                self.assertEqual(audit["reinitialized"], ["ego4d_state_prompt"])
+                self.assertIn("ego4d_state_prompt", audit["dropped"])
+                for invalid in (
+                    dict(source, **{"backbone.weight": torch.ones(3, 3)}),
+                    {"ego4d_state_prompt": source["ego4d_state_prompt"]},
+                    dict(source, ego4d_state_prompt_other=torch.ones(14)),
+                ):
+                    with self.assertRaisesRegex(ValueError, "incompatible shared backbone"):
+                        select_transfer_weights(invalid, target)
+
 
 class RawFormatsTest(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("zarr"), "Zarr is an optional raw-data test dependency")

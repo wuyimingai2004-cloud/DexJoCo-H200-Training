@@ -53,17 +53,32 @@ class DexJoCoModel(unittest.TestCase):
 
     def test_actual_loader_migrates_joint14_to_22_and_44(self):
         source = H.Harness(config(14))
+        # The tiny harness bypasses UBT_WM.__init__; include its state-sized prompt
+        # so the regression covers the parameter present in production checkpoints.
+        source.ego4d_state_prompt = torch.nn.Parameter(torch.full((14,), 5.0))
         with tempfile.TemporaryDirectory() as directory:
             checkpoint = Path(directory) / "initial.pt"
             torch.save({"module": source.state_dict()}, checkpoint)
-            for dimension in (22, 44):
+            for dimension in (14, 22, 44):
                 target = H.Harness(config(dimension), seed=123)
+                target.ego4d_state_prompt = torch.nn.Parameter(torch.full((dimension,), .02))
+                initial_prompt = target.ego4d_state_prompt.detach().clone()
                 initial = {k: v.clone() for k, v in target.state_dict().items() if is_interface(k)}
                 audit = Path(directory) / f"audit_{dimension}.json"
                 target.load_pretrain_weights(str(checkpoint), action_interface_policy="dexjoco_rgb", audit_path=str(audit))
                 for key, value in target.state_dict().items():
                     torch.testing.assert_close(value, initial[key] if is_interface(key) else source.state_dict()[key])
-                self.assertEqual(len(json.loads(audit.read_text())["source_sha256"]), 64)
+                torch.testing.assert_close(target.ego4d_state_prompt, initial_prompt)
+                record = json.loads(audit.read_text())
+                self.assertIn("ego4d_state_prompt", record["reinitialized"])
+                self.assertIn("ego4d_state_prompt", record["dropped"])
+                self.assertEqual(len(record["source_sha256"]), 64)
+
+                state, actions = torch.randn(1, dimension), torch.randn(1, 24, dimension)
+                observed, returned_actions = target._apply_ego4d_action_state_prompt(
+                    state, actions, source_datasets=["dexjoco"])
+                self.assertIs(observed, state)
+                self.assertIs(returned_actions, actions)
 
     def test_camera_prompt_matches_right_first_canvas(self):
         text = build_vlm_task_message("open microwave", style="dexjoco_tlayout")
