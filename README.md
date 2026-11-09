@@ -16,6 +16,24 @@ cd DexJoCo-H200-Training
 
 Windows 可以下载和编辑代码。四卡训练入口面向 Linux CUDA/H200 环境；下载源码不等于已经安装训练环境。
 
+## 下载六任务训练数据（Windows）
+
+本轮使用第三方 `rand_obj` **LeRobot v2 ZIP**，六个包约 4.03 GB；解压后约 4.05 GB。
+无需继续下载 Raw/Zarr。以下脚本只依赖 Python 标准库和 Windows 自带 `curl.exe`，
+支持 `.part` 续传、固定版本和 SHA256 校验；已有下载不覆盖，原 Raw 文件也不删除。
+
+```powershell
+python .\scripts\download_dexjoco_data.py --output "C:\Users\Admin\Desktop\yiming_wang\DexJoCo_training_data"
+```
+
+中断用 Ctrl+C；同一命令重跑可续传。浏览器下载的六个 ZIP 也可放到上述目录，
+加 `--verify-only` 仅校验。校验通过后将每个 ZIP **解压到同一个数据根目录**，
+各包自带任务文件夹；保留 `meta/`、`data/`、`videos/` 全部内容。
+不要再递归解压 MP4/Parquet。训练时数据路径应为 Linux 上解压后的位置。
+
+数据来源和 manifest 写法见训练指南的「LeRobot v2 数据」部分。
+本入口不支持官方 LeRobot v3 的共享视频分片；不能把 v3 数据直接替换进来。
+
 ## 在 Linux GPU 环境运行
 
 使用包含 PyTorch/CUDA、Accelerate、DeepSpeed、Transformers 等 WAM 依赖的 Python 3.10+ 环境；完整依赖说明见训练指南。
@@ -34,7 +52,7 @@ python -m thinker_wm.data_prepare.dexjoco --help
 
 ## 验证状态
 
-已完成本地数据/启动逻辑、22/44 维小模型训练和 Joint24 回归验证；原始 Zarr 与 MP4 读取也有本地验证。
+已完成本地数据/启动逻辑、22/44 维小模型训练和 Joint24 回归验证；原始 Zarr 与 MP4 读取也有本地验证。新增 LeRobot v2 六任务数据通路有 CPU 回归测试。
 尚未在真实 H200、完整 5B 模型、正式数据或模拟器闭环上验证；具体测试与已知限制见训练指南。
 
 ## 目录

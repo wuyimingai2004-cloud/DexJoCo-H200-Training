@@ -1,0 +1,44 @@
+{
+  "repo_id": "seungkukim/dexjoco_lerobot_v20",
+  "tasks": {
+    "singlearm/pick_bucket": {
+      "n_files": 306,
+      "raw_bytes": 405418504,
+      "sha256": "066d87c040e8fbe4f881364bf434422325b63fa761957657345052503ea5693c",
+      "zip_bytes": 403862345
+    },
+    "bimanual/bimanual_microwave_cook": {
+      "n_files": 406,
+      "raw_bytes": 918368592,
+      "sha256": "e880a33cb734192d0f3860e0f70c2b5ea783b4152669bc1cfa106288e6f1a8fb",
+      "zip_bytes": 914264161
+    },
+    "singlearm/click_mouse": {
+      "n_files": 306,
+      "raw_bytes": 288744592,
+      "sha256": "5339778b262d62bdff672384512463c5f6b5e783b081d7a9c4ee19ced203e194",
+      "zip_bytes": 287488201
+    },
+    "singlearm/fold_glasses": {
+      "n_files": 306,
+      "raw_bytes": 478463854,
+      "sha256": "6ae5cc4c0e6fe43f739b92cb08fd7a9d04bd736baecd70c9a74a976f0a6d933b",
+      "zip_bytes": 476565467
+    },
+    "bimanual/bimanual_hanoi": {
+      "n_files": 406,
+      "raw_bytes": 1421911391,
+      "sha256": "85215c65ff0fced80436d9133552a2e5f9066d728b23a9e2cd9f3b187fb12904",
+      "zip_bytes": 1414313080
+    },
+    "bimanual/bimanual_unlock_ipad": {
+      "n_files": 406,
+      "raw_bytes": 534875977,
+      "sha256": "912e175a2138b5fe31d7c0571e1fcfa397c2455315cdcd4e86ac0957a94020b9",
+      "zip_bytes": 532692586
+    }
+  },
+  "revision": "2b87b04b35e73fc00b5e85b3ea4a5c35d2e0dd89",
+  "dataset_variant": "rand_obj",
+  "format": "lerobot_v2"
+}

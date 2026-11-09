@@ -53,6 +53,65 @@ VLM 的布局描述同步使用上述顺序。
 [录制器](https://github.com/brave-eai/dexjoco/blob/8d23b0fab23b17a58c4b55f3942e17013aaf8267/scripts/record_demos_zarr.py)。
 没有复制或修改官方 DexJoCo 源码。
 
+## LeRobot v2 数据（本轮选择 rand_obj）
+
+下载来源：[seungkukim/dexjoco_lerobot_v20](https://huggingface.co/datasets/seungkukim/dexjoco_lerobot_v20)，
+固定 revision `2b87b04b35e73fc00b5e85b3ea4a5c35d2e0dd89`。
+这是第三方重打包数据，不是官方发布的 ZIP。与官方元数据抽查对照，其相机和帧数对应 `rand_obj`；
+并非 `rand_full` 的等价替换，也没有声称所有内容逐字节等同于官方数据。
+六个 ZIP 的大小和 SHA256 固定在 `data_prepare/dexjoco/archive_manifest.json`。
+
+`rand_obj` 随机化物体位置与桌面高度；`rand_full` 另外随机化外部相机、光照、桌面纹理。
+LeRobot 是存储格式，两种随机化设置都可以使用它。
+当前读取器支持 v2.0/v2.1 的逐 episode Parquet + MP4，**不支持 v3 共享分片**。
+
+在原训练依赖上补充 `pyarrow>=14`（集群离线安装需事先下载 Linux/Python 对应 wheel）。
+不需要安装整个 LeRobot 框架，也不需要把视频转成 Zarr 或重新编码。
+`prepare` 仍生成 Motus Catalog/统计和小型 state/action `.npy`；视频直接引用原 MP4。
+OpenCV 必须支持实际视频编码；`prepare` 逐帧解码检查，失败会报错而不会静默跳过。
+
+manifest 每行用 `episode_dir` 指向**任务根目录**，用 `episode_index` 选择其中一条轨迹：
+
+```json
+{
+  "task": "pick_bucket",
+  "format": "lerobot_v2",
+  "dataset_variant": "rand_obj",
+  "episode_dir": "/path/to/DexJoCo_training_data/pick_bucket",
+  "episode_index": 0,
+  "source_group": "pick_bucket_original_000000",
+  "layout_id": "REPLACE_WITH_AUDITED_LAYOUT_ID",
+  "split": "train",
+  "instruction": "Place the boxed food into the bucket and then lift the bucket."
+}
+```
+
+这些行放进下节同一 manifest 的 `episodes` 列表。
+`instruction` 必须与 `meta/episodes.jsonl` 对应 episode 的任务文字一致。
+`layout_id` 要基于实际场景证据填写，不能把 episode 编号当作布局隔离的证明。
+读取器检查维度、30 Hz 时间、帧序、episode 编号、轨迹长度和相机文件。
+`rand_obj` 的外部相机：PickBucket/FoldGlasses 为 `front`，ClickMouse 为 `ego_right`，
+双臂任务为 `ego`；双臂画布始终按外部、右腕、左腕排列。
+
+ZIP 中每任务 100 条示范不自带本项目的 train/dev/test Layout 划分。
+原训练器仍要求独立 dev 数据用于每 5k 离线验证；全用 100 条训练时需另外准备 dev，
+或明确修改评测策略。下载数据本身不会生成有效分割，也不会启动训练。
+
+### 成功率评测
+
+在 DexJoCo 模拟器中运行完整回合，采用官方 `info["succeed"]` / `env.is_success` 判定，
+成功率 = 成功回合数 / 完整评测回合数。离线 loss 与 A2V 视频评分不等于任务成功率。
+参考 [官方评测入口](https://github.com/brave-eai/dexjoco/blob/8d23b0fab23b17a58c4b55f3942e17013aaf8267/dexjoco/dexjoco_openpi_client/eval_dexjoco_openpi.py)。
+建议先每任务 10 回合冒烟；正式每任务 3 组固定 seed、各 50 回合，并报告逐任务结果。
+这是本项目建议方案，官方 CLI 默认每次 50 回合。WAM 和 WAM+A2V 要复用相同初始场景，
+设置相同动作频率/步数限制，记录时间开销及推理错误；错误不能被静默剔除。
+不同 seed 本身不证明训练/测试 Layout 不重叠，应记录并审查实际初始状态。
+用于反复选择 checkpoint 的场景属于开发评测；最终测试另保留未用于选模型的场景。
+
+训练完成后还需实现 Motus 策略服务与官方评测接口的衔接，统一相机预处理、状态/动作转换、
+动作 horizon 与执行前缀（官方现有客户端中有固定 horizon，不能直接照搬到本模型）。
+本次修改只交付训练数据读取及下载，**尚未实现或运行模拟器闭环评测/A2V 审核服务**。
+
 ## 1 准备冻结的数据清单
 
 清单必须人工核对原始轨迹组及布局；不能仅凭文件名声称布局未见。
@@ -230,7 +289,7 @@ python -m thinker_wm.data_prepare.dexjoco train \
 ## 本地验证
 
 ```bash
-python -m unittest discover -s tests -p 'test_dexjoco_training.py' -v
+python -m unittest discover -s tests -p 'test_dexjoco*.py' -v
 python scripts/test_dexjoco_model.py
 ```
 
@@ -247,3 +306,8 @@ ZeRO checkpoint 重载、GPU 显存/吞吐或闭环成功率。
 既有 `test_training_stop_and_timing.py` 的正常保存/停止/重载用例通过，但后续验证 barrier
 在 macOS MPS 后端报错，整个双进程套件未通过。该测试涉及的训练循环、保存和重载方法本次未改动。
 H200 使用 CUDA/NCCL，仍需执行上面的四卡冒烟来验收其实际分布式路径。
+
+LeRobot v2 适配回归：21 项数据/启动测试中 20 项通过，1 项因当前测试环境未装 Zarr 跳过；
+包括六任务单/双臂真实 MP4 fixture、相机顺序、时间/episode 边界拒绝与 train-only 统计。
+另抽查第三方 PickBucket 的真实第 0 条轨迹（537 帧），Parquet 状态/动作及两个视频完整解码通过。
+这不代表六任务全部 600 条真实数据已验收，也不代表在 H200 上已完成模型训练。
