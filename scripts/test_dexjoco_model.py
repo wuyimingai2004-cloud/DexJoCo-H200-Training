@@ -26,6 +26,28 @@ def config(dimension):
 
 
 class DexJoCoModel(unittest.TestCase):
+    def test_pure_a2v_trains_action_conditioning_from_video_loss(self):
+        c = config(22)
+        c.training_mode_probs = dict(joint=0., a2v=1.)
+        model = H.Harness(c).train()
+        modes = {TT.sample_step_decision(c, step, True, False).mode for step in range(200)}
+        self.assertEqual(modes, {TT.MODE_WORLD})
+        batch = H.batch(b=1, frames=12, ratio=2)
+        batch.update(state=torch.randn(1, 22), actions=torch.randn(1, 24, 22))
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+        output = model.training_step(**batch, dropout_seed_step=0)
+        self.assertEqual(float(output["action_loss"]), 0.)
+        self.assertGreater(float(output["video_loss"]), 0.)
+        self.assertTrue(torch.isfinite(output["total_loss"]))
+        output["total_loss"].backward()
+        encoder = dict(model.named_parameters())["world_model.action_branch.encoder.action_embedding.weight"]
+        self.assertIsNotNone(encoder.grad)
+        self.assertTrue(torch.isfinite(encoder.grad).all())
+        self.assertGreater(float(encoder.grad.abs().sum()), 0.)
+        before = encoder.detach().clone()
+        optimizer.step()
+        self.assertFalse(torch.equal(before, encoder))
+
     def test_22_and_44_dim_joint_a2v_updates(self):
         for dimension in (22, 44):
             model = H.Harness(config(dimension)).train()

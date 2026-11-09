@@ -46,8 +46,8 @@ def validate_recipe(c: dict) -> None:
     wm = c["model"]["wm"]
     if (wm.get("enable_depth") or wm.get("history_enable") or c.get("history", {}).get("enable")
             or wm.get("action_target_repr") != "absolute_native" or wm.get("action_norm_policy") != "zscore"
-            or wm.get("training_mode_probs") != {"joint": .6, "a2v": .4}):
-        raise ValueError("expected RGB-only absolute/zscore joint:A2V=60:40")
+            or wm.get("training_mode_probs") not in ({"joint": .6, "a2v": .4}, {"joint": 0.0, "a2v": 1.0})):
+        raise ValueError("expected RGB-only absolute/zscore joint:A2V=60:40 or pure A2V")
     if c["resume"].get("auto_resume_latest") or c["resume"].get("checkpoint_path"):
         raise ValueError("use explicit --resume; automatic/YAML resume is disabled")
     if c["finetune"].get("action_interface_policy") != "dexjoco_rgb":
@@ -142,9 +142,9 @@ def plan_launch(config: Path, run_name: str, *, resume: Path | None = None,
     c = yaml.safe_load(config.read_text())
     validate_recipe(c)
     expected_val_interval = 0 if c["dexjoco"].get("validation_policy") == "none" else 5000
-    if (c["training"]["max_steps"] != 20000 or c["system"]["save_interval"] != 5000
+    if ((c["training"]["max_steps"], c["system"]["save_interval"]) not in ((20000, 5000), (5000, 1000))
             or c["system"]["val_interval"] != expected_val_interval):
-        raise ValueError("base recipe must retain 20k updates, 5k saves and its declared validation policy")
+        raise ValueError("base recipe requires 20k/5k or 5k/1k updates/saves and its declared validation policy")
     if smoke_steps is not None:
         c["training"]["max_steps"] = smoke_steps
         c["system"].update(save_interval=smoke_steps,
