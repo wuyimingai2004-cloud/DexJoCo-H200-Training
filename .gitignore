@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+validation/
+outputs/
+baseline-manifest.json
+
+# Local Python packaging products
+build/
+dist/
+*.egg-info/
+
+# Training assets and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+checkpoints/
+pretrained_models/
+prepared_release/
+dexjoco_runs/
+*.pt
+*.pth
+*.safetensors
+*.log
+.DS_Store
