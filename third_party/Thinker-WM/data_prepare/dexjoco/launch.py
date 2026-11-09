@@ -55,16 +55,27 @@ def validate_recipe(c: dict) -> None:
     root = Path(spec["release"]).resolve()
     if sha256(root / "release.json") != spec["release_sha256"]:
         raise ValueError("prepared release identity changed")
-    verify_release(root, task.name)
+    receipt = verify_release(root, task.name)
+    validation = receipt.get("validation_policy", "development")
+    if validation not in ("none", "development") or spec.get("validation_policy", "development") != validation:
+        raise ValueError("configuration/release validation policy mismatch")
     sources = c["dataset"]["sources"]
     if len(sources) != 1 or sources[0].get("dataset") != "dexjoco":
         raise ValueError("each run must have exactly one DexJoCo source")
     source = sources[0]
-    for key, filename in (("catalog_path", "train.episode_catalog.jsonl"),
-                          ("eval_catalog_path", "dev.episode_catalog.jsonl")):
+    catalogs = [("catalog_path", "train.episode_catalog.jsonl")]
+    pools = [("pool", "train")]
+    if validation == "development":
+        catalogs.append(("eval_catalog_path", "dev.episode_catalog.jsonl"))
+        pools.append(("eval_pool", "dev"))
+    elif (receipt["tasks"][task.name]["dev"] != 0 or c["system"].get("val_interval") != 0
+          or c["system"].get("val_a2v") or c.get("periodic_eval", {}).get("enabled")
+          or any(k in source for k in ("eval_catalog_path", "eval_index_path", "eval_pool"))):
+        raise ValueError("train-only recipe must disable all offline validation, without an eval source")
+    for key, filename in catalogs:
         if Path(source[key]).resolve() != root / task.name / filename:
             raise ValueError("cross-task or split catalog mismatch")
-    for key, split in (("pool", "train"), ("eval_pool", "dev")):
+    for key, split in pools:
         if Path(source[key]["path"]).resolve() != root / task.name / f"{split}.ranges.sqlite":
             raise ValueError("cross-task or split pool mismatch")
         if source[key].get("action_start_offset") != 0:
@@ -130,11 +141,14 @@ def plan_launch(config: Path, run_name: str, *, resume: Path | None = None,
         raise ValueError("smoke and extended budgets are mutually exclusive")
     c = yaml.safe_load(config.read_text())
     validate_recipe(c)
-    if c["training"]["max_steps"] != 20000 or c["system"]["save_interval"] != 5000 or c["system"]["val_interval"] != 5000:
-        raise ValueError("base recipe must retain 20k updates and 5k save/evaluation intervals")
+    expected_val_interval = 0 if c["dexjoco"].get("validation_policy") == "none" else 5000
+    if (c["training"]["max_steps"] != 20000 or c["system"]["save_interval"] != 5000
+            or c["system"]["val_interval"] != expected_val_interval):
+        raise ValueError("base recipe must retain 20k updates, 5k saves and its declared validation policy")
     if smoke_steps is not None:
         c["training"]["max_steps"] = smoke_steps
-        c["system"].update(save_interval=smoke_steps, val_interval=smoke_steps)
+        c["system"].update(save_interval=smoke_steps,
+                           val_interval=smoke_steps if expected_val_interval else 0)
     if max_steps is not None:
         c["training"]["max_steps"] = max_steps
     c["logging"]["run_name"] = run_name

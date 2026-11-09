@@ -15,11 +15,19 @@ BASE = MODEL_ROOT / "configs/robodojo_joint24_v2.yaml"
 
 
 def build_config(name: str, *, release: Path, wan_dir: Path, vlm_dir: Path,
-                 init_checkpoint: Path, output_root: Path, batch_size: int = 8) -> dict:
+                 init_checkpoint: Path, output_root: Path, batch_size: int = 8,
+                 seed: int | None = None) -> dict:
     task = task_for(name)
     if batch_size not in (4, 8):
         raise ValueError("plan supports per-GPU batch 8 or fallback 4; accumulation remains 1")
     receipt = verify_release(release, task.name)
+    validation = receipt.get("validation_policy", "development")
+    if validation not in ("none", "development"):
+        raise ValueError("unknown validation policy")
+    if validation == "none" and receipt["tasks"][task.name]["dev"] != 0:
+        raise ValueError("train-only release unexpectedly contains development data")
+    if seed is not None and (type(seed) is not int or seed <= 0):
+        raise ValueError("seed must be a positive integer")
     root = release.resolve() / task.name
     c = deepcopy(yaml.safe_load(BASE.read_text()))
     c["common"].update(control_hz=30, action_dim=task.dimension, state_dim=task.dimension,
@@ -36,6 +44,9 @@ def build_config(name: str, *, release: Path, wan_dir: Path, vlm_dir: Path,
                       action_start_offset=0, without_replacement=True),
             eval_pool=dict(type="sampling_ranges", path=str(root / "dev.ranges.sqlite"),
                            action_start_offset=0, windows_per_episode=8))])
+    if validation == "none":
+        for key in ("eval_catalog_path", "eval_index_path", "eval_pool"):
+            c["dataset"]["sources"][0].pop(key)
     c.pop("depth", None)
     c["history"] = dict(enable=False)
     wm = c["model"]["wm"]
@@ -49,7 +60,8 @@ def build_config(name: str, *, release: Path, wan_dir: Path, vlm_dir: Path,
     # The inherited T-layout prompt says left/right wrists in the opposite order.
     c["model"]["vlm_prompt_style"] = "dexjoco_tlayout"
     c["model"]["load_pretrained_backbones"] = False
-    c["training"].update(batch_size=batch_size, max_steps=20000, gradient_accumulation_steps=1, seed=task.seed)
+    c["training"].update(batch_size=batch_size, max_steps=20000, gradient_accumulation_steps=1,
+                         seed=task.seed if seed is None else seed)
     for key in ("history_bias_learning_rate", "depth_learning_rate", "depth_clone_learning_rate"):
         c["training"].pop(key, None)
     c["system"].update(checkpoint_dir=str(output_root.resolve() / task.name / "checkpoints"),
@@ -57,6 +69,10 @@ def build_config(name: str, *, release: Path, wan_dir: Path, vlm_dir: Path,
         val_tasks=[task.name], val_num_batches=receipt["tasks"][task.name]["dev"] * 8 // batch_size,
         val_full_set=True, val_distributed=True, val_seed=20261109,
         num_workers=0, ready_batch_queue_size=2, ready_batch_queue_clone_tensors=False)
+    if validation == "none":
+        c["system"].update(val_interval=0, val_num_batches=0, val_a2v=False,
+                           val_full_set=False, val_distributed=False, val_tasks=[])
+        c["periodic_eval"] = dict(enabled=False)
     for key in ("val_episode_order_path", "val_windows_per_task"):
         c["system"].pop(key, None)
     c["logging"].update(run_name=None, tensorboard_log_dir="tensorboard", wandb_project="dexjoco")
@@ -67,18 +83,23 @@ def build_config(name: str, *, release: Path, wan_dir: Path, vlm_dir: Path,
         native_state_dim=23 * task.arms, release=str(release.resolve()),
         release_sha256=sha256(release / "release.json"), action_stats_path=str(root / "action_stats.json"),
         action_stats_sha256=sha256(root / "action_stats.json"), target_gpus=4,
-        execute_prefix=16, base_config_sha256=sha256(BASE))
+        execute_prefix=16, base_config_sha256=sha256(BASE), validation_policy=validation)
     return c
 
 
-def write_configs(directory: Path, prefix: str, **kwargs) -> list[Path]:
+def write_configs(directory: Path, prefix: str, *, tasks: list[str] | None = None,
+                  seed: int | None = None, **kwargs) -> list[Path]:
     """Caller chooses new names explicitly; no existing configuration is overwritten."""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", prefix):
         raise ValueError("name-prefix must be a simple filename component")
-    names = [directory / f"{prefix}_{t.name}.yaml" for t in TASKS]
+    selected = list(TASKS) if tasks is None else [task_for(t) for t in tasks]
+    if not selected or len(selected) != len(set(selected)):
+        raise ValueError("select at least one task without duplicates")
+    names = [directory / f"{prefix}_{t.name}.yaml" for t in selected]
     if any(p.exists() for p in names):
         raise FileExistsError("refusing to replace an existing task configuration")
-    configs = [build_config(t.name, **kwargs) for t in TASKS]
+    configs = [build_config(t.name, seed=None if seed is None else seed + i, **kwargs)
+               for i, t in enumerate(selected)]
     directory.mkdir(parents=True, exist_ok=True)
     for path, config in zip(names, configs):
         with path.open("x") as stream:
