@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 import numpy as np
 
@@ -39,7 +40,7 @@ def _catalog(records: list[dict], directory: Path, split: str) -> None:
 
 
 def prepare_release(manifest: Path, output: Path, names: list[str], *, target_episodes: int = 100,
-                    strict_layout: bool = True) -> dict:
+                    strict_layout: bool = True, no_dev: bool = False) -> dict:
     """No random split and no guessing missing metadata; never read test trajectories."""
     if target_episodes <= 0:
         raise ValueError("target_episodes must be positive")
@@ -56,7 +57,10 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
         groups = {r["source_group"] for r in train}
         if len(groups) != target_episodes:
             raise ValueError(f"{task.name}: expected {target_episodes} original training trajectories, got {len(groups)}")
-        if not any(r["task"] == task.name and r["split"] == "dev" for r in rows):
+        has_dev = any(r["task"] == task.name and r["split"] == "dev" for r in rows)
+        if no_dev and has_dev:
+            raise ValueError(f"{task.name}: --no-dev cannot silently discard development rows")
+        if not no_dev and not has_dev:
             raise ValueError(f"{task.name}: provide separate development demonstrations for 5k validation")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -65,7 +69,7 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
     for task in tasks:
         directory = output / task.name
         directory.mkdir()
-        records = {"train": [], "dev": []}
+        records = {"train": []} if no_dev else {"train": [], "dev": []}
         total, mean, m2 = 0, np.zeros(task.dimension), np.zeros(task.dimension)
         audit = []
         datasets = {}
@@ -126,6 +130,7 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
                               dataset_variant=row.get("dataset_variant"), episode_index=row.get("episode_index"),
                               camera_sha256={str(p): sha256(p) for p in paths},
                               state_sha256=sha256(episode / "state.npy"), action_sha256=sha256(episode / "action.npy")))
+            logging.getLogger(__name__).info("%s: validated episode %d (%d frames)", task.name, len(audit), n)
         stats = dict(schema="dexjoco-action-stats/v1", task=task.name, robot=task.robot, contract=CONTRACT,
                      count=total, mean=mean.tolist(), std=np.maximum(np.sqrt(m2 / total), 1e-3).tolist(),
                      std_floor=1e-3, source_split="train", manifest_sha256=sha256(output / "manifest.json"))
@@ -133,10 +138,12 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
         for split in records:
             _catalog(records[split], directory, split)
         write_json(directory / "episodes.json", audit)
-        reports[task.name] = dict(train=len(records["train"]), dev=len(records["dev"]), train_steps=total)
+        reports[task.name] = dict(train=len(records["train"]), dev=len(records.get("dev", [])), train_steps=total)
     files = {str(p.relative_to(output)): sha256(p) for p in output.rglob("*") if p.is_file()}
     receipt = dict(schema="dexjoco-release/v1", contract=CONTRACT, upstream_commit=UPSTREAM_COMMIT,
-                   strict_layout=strict_layout, target_episodes=target_episodes, tasks=reports, files=files)
+                   strict_layout=strict_layout, target_episodes=target_episodes, tasks=reports, files=files,
+                   validation_policy="none" if no_dev else "development",
+                   layout_audit=document.get("layout_audit", "manifest_declared"))
     write_json(output / "release.json", receipt)
     return receipt
 

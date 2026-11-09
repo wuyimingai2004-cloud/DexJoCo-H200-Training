@@ -34,6 +34,23 @@ python .\scripts\download_dexjoco_data.py --output "C:\Users\Admin\Desktop\yimin
 数据来源和 manifest 写法见训练指南的「LeRobot v2 数据」部分。
 本入口不支持官方 LeRobot v3 的共享视频分片；不能把 v3 数据直接替换进来。
 
+## 先只训练 ClickMouse
+
+已准备好单任务入口，其他五项数据不必存在。对于 **100 条全训练、不设离线 dev 集** 的实验：
+
+```bash
+python -m thinker_wm.data_prepare.dexjoco setup-task --task click_mouse --data /path/to/click_mouse --work-dir /path/to/click_mouse_training --name-prefix stage2_20261109_v1 --seed 2026110911 --no-dev
+```
+
+它读取原配置中的 Wan/VAE/Qwen/Motus 权重路径并检查文件，验证全部轨迹与视频，
+生成 `configs/stage2_20261109_v1_click_mouse.yaml`；**不会启动训练**。
+权重路径不同可用 `--assets-from /path/to/reference.yaml` 指定参考配置。
+工作目录必须是新目录；已有准备结果不会被覆盖。
+
+然后使用生成配置运行 `train --smoke-steps 200 --check`；检查通过后加 `--execute` 才训练。
+正式训练使用新的 `--run-name train_20k`，不带 `--smoke-steps`，从相同初始化权重独立开始。
+完整命令和验证范围见训练指南的「单任务、无离线验证集」部分。
+
 ## 在 Linux GPU 环境运行
 
 使用包含 PyTorch/CUDA、Accelerate、DeepSpeed、Transformers 等 WAM 依赖的 Python 3.10+ 环境；完整依赖说明见训练指南。

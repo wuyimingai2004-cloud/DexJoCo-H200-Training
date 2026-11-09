@@ -19,7 +19,7 @@ from thinker_wm.data_prepare.dexjoco.prepare import prepare_release
 from thinker_wm.data_prepare.dexjoco.download import download_all
 
 
-def fixture(root, task, variant='rand_obj'):
+def fixture(root, task, variant='rand_obj', count=31, action_offset=100.):
     (root / 'meta').mkdir(parents=True)
     camera = 'random_camera' if variant == 'rand_full' else ('ego' if task.arms == 2 else 'ego_right' if task.name == 'click_mouse' else 'front')
     cameras = [camera, 'wrist'] if task.arms == 1 else [camera, 'wrist_left', 'wrist_right']
@@ -29,19 +29,19 @@ def fixture(root, task, variant='rand_obj'):
                 features={'action': dict(shape=[task.dimension]), 'observation.state': dict(shape=[23 * task.arms]),
                           **{'observation.images.' + k: dict(dtype='video') for k in cameras}})
     (root / 'meta/info.json').write_text(json.dumps(info))
-    (root / 'meta/episodes.jsonl').write_text('\n'.join(json.dumps(dict(episode_index=i, length=31, tasks=['fixture task'])) for i in range(2)))
+    (root / 'meta/episodes.jsonl').write_text('\n'.join(json.dumps(dict(episode_index=i, length=count, tasks=['fixture task'])) for i in range(2)))
     rows = []
     for i in range(2):
-        state = np.zeros((31, task.arms * 23), dtype=np.float32)
+        state = np.zeros((count, task.arms * 23), dtype=np.float32)
         state[:, 0], state[:, 3] = i + 1, 1
         if task.arms == 2:
             state[:, 7], state[:, 10] = i + 2, 1
             state[:, 14:30], state[:, 30:46] = .2, .4
-        action = np.zeros((31, task.dimension), dtype=np.float32)
-        action[:, 0] = i * 100 + np.arange(31) * .01
+        action = np.zeros((count, task.dimension), dtype=np.float32)
+        action[:, 0] = i * action_offset + np.arange(count) * .01
         table = pa.table({'observation.state': state.tolist(), 'action': action.tolist(),
-                          'timestamp': (np.arange(31) / 30).astype(np.float32), 'frame_index': np.arange(31),
-                          'episode_index': np.full(31, i)})
+                          'timestamp': (np.arange(count) / 30).astype(np.float32), 'frame_index': np.arange(count),
+                          'episode_index': np.full(count, i)})
         path = root / info['data_path'].format(episode_chunk=0, episode_index=i)
         path.parent.mkdir(parents=True, exist_ok=True)
         pq.write_table(table, path)
@@ -51,7 +51,7 @@ def fixture(root, task, variant='rand_obj'):
             w = cv2.VideoWriter(str(p), cv2.VideoWriter_fourcc(*'mp4v'), 30, (16,16))
             if not w.isOpened():
                 raise RuntimeError('fixture encoder unavailable')
-            for t in range(31):
+            for t in range(count):
                 w.write(np.full((16,16,3), 30 + t * 3 + i * 20, dtype=np.uint8))
             w.release()
         rows.append(dict(task=task.name, episode_dir=str(root), format='lerobot_v2', dataset_variant=variant,

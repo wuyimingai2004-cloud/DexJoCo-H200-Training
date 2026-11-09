@@ -94,8 +94,9 @@ manifest 每行用 `episode_dir` 指向**任务根目录**，用 `episode_index`
 双臂任务为 `ego`；双臂画布始终按外部、右腕、左腕排列。
 
 ZIP 中每任务 100 条示范不自带本项目的 train/dev/test Layout 划分。
-原训练器仍要求独立 dev 数据用于每 5k 离线验证；全用 100 条训练时需另外准备 dev，
-或明确修改评测策略。下载数据本身不会生成有效分割，也不会启动训练。
+默认 prepare 流程要求独立 dev 数据用于每 5k 离线验证；明确选择全训练时，
+使用下节 setup-task --no-dev，或对手工 manifest 使用 prepare --no-dev。
+下载数据本身不会生成有效分割，也不会启动训练。
 
 ### 成功率评测
 
@@ -111,6 +112,46 @@ ZIP 中每任务 100 条示范不自带本项目的 train/dev/test Layout 划分
 训练完成后还需实现 Motus 策略服务与官方评测接口的衔接，统一相机预处理、状态/动作转换、
 动作 horizon 与执行前缀（官方现有客户端中有固定 horizon，不能直接照搬到本模型）。
 本次修改只交付训练数据读取及下载，**尚未实现或运行模拟器闭环评测/A2V 审核服务**。
+
+## 单任务、无离线验证集（ClickMouse 当前方案）
+
+此模式是默认 train/dev 工作流的显式替代方案：当前先做 ClickMouse，其他任务以后各自准备。
+全部 100 条 LeRobot episode 进入训练；不创建 dev Catalog，不借训练数据充当验证数据，
+`system.val_interval=0` 且 `periodic_eval.enabled=false`。200 步冒烟也保持验证关闭。
+仍每 5k 保存完整 checkpoint，正式预算 20k，四卡 batch 8（全局 32）、joint:A2V=60:40。
+
+生成器只依据 LeRobot episode 编号记录来源标识；源数据缺少可证明原始增强关系或 Layout
+隔离的证据，因此 manifest/release 明确记录 `layout_audit=not_provided` 和 `strict_layout=false`。
+后续成功率必须在另外冻结的模拟器场景上评估，当前数据准备不证明未见 Layout 泛化。
+
+以下命令均在 Linux 训练环境、代码仓库根目录执行。目录、配置前缀和 seed 使用本次确认值；
+每次新实验应显式选新的非零 seed。这里 `--assets-from` 仅提取权重路径，不覆盖模型训练参数。
+
+```bash
+python -m thinker_wm.data_prepare.dexjoco setup-task \
+  --task click_mouse --data /path/to/click_mouse \
+  --work-dir /path/to/click_mouse_training \
+  --name-prefix stage2_20261109_v1 --seed 2026110911 --no-dev
+```
+
+先检查本地 Wan/Qwen 的 config.json、VAE 和 Motus 模型文件位置，再创建工作目录。
+它不是完整的模型兼容性测试；严格加载与 CUDA 前后向仍由冒烟训练验证。
+准备阶段每完成一条轨迹输出进度，所有轨迹都需解码检查，可能需要几分钟。
+目录内生成 manifest、prepared_release、configs；训练 outputs 位于其 runs 子目录。
+存在同名工作目录会停止，不覆盖；失败时保留现场，排查后换新工作目录重跑。
+
+```bash
+python -m thinker_wm.data_prepare.dexjoco train --config /path/to/click_mouse_training/configs/stage2_20261109_v1_click_mouse.yaml --run-name smoke_200 --smoke-steps 200 --check
+python -m thinker_wm.data_prepare.dexjoco train --config /path/to/click_mouse_training/configs/stage2_20261109_v1_click_mouse.yaml --run-name smoke_200 --smoke-steps 200 --execute
+```
+
+`--check` 不训练；第二条才启动四卡训练，日志写入该 run 的 train.log。
+启动器默认前台运行，保持终端连接或使用已有 tmux 会话；它不会自动脱离终端。
+确认 200 步完整 checkpoint 后，正式训练使用 `--run-name train_20k --execute`，
+不传 smoke 参数；两次独立初始化，正式训练不接着 smoke 的权重/优化器继续。
+
+一般配置生成入口也可只生成一项：`configs --tasks click_mouse --seed 2026110911`，
+配合已有其他必需参数。未指定 --tasks 时保留六任务行为。
 
 ## 1 准备冻结的数据清单
 
@@ -311,3 +352,8 @@ LeRobot v2 适配回归：21 项数据/启动测试中 20 项通过，1 项因�
 包括六任务单/双臂真实 MP4 fixture、相机顺序、时间/episode 边界拒绝与 train-only 统计。
 另抽查第三方 PickBucket 的真实第 0 条轨迹（537 帧），Parquet 状态/动作及两个视频完整解码通过。
 这不代表六任务全部 600 条真实数据已验收，也不代表在 H200 上已完成模型训练。
+
+单任务/无 dev 改动回归：27 项 CPU 数据/启动测试中 26 项通过，1 项可选 Zarr 测试跳过；
+覆盖全训练清单、单任务配置、不创建假 dev、world_size=4 下 rank 0 的 CPU 首批读取、
+冒烟不重启验证、选错验证策略拒绝，以及已有六任务/带 dev 流程兼容性。
+本地 fixture 权重仅用于检查路径，不反序列化；H200 checkpoint 兼容性仍须真实冒烟确认。
