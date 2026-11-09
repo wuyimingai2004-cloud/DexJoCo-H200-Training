@@ -20,7 +20,7 @@ OPTIONAL_PREFIXES = (
 
 
 def is_interface(key: str) -> bool:
-    return key.startswith(INTERFACE_PREFIXES) or "robot_token_embedding." in key
+    return key == "ego4d_state_prompt" or key.startswith(INTERFACE_PREFIXES) or "robot_token_embedding." in key
 
 
 def select_transfer_weights(source: dict, target: dict, legacy_prefixes=()) -> tuple[dict, dict]:
