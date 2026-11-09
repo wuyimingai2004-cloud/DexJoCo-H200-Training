@@ -90,6 +90,36 @@ class TaskSetupTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_recipe(c)
 
+    def test_pure_a2v_5k_plan_retains_single_task_and_no_validation(self):
+        c = deepcopy(self.c)
+        c["model"]["wm"]["training_mode_probs"] = dict(joint=0.0, a2v=1.0)
+        c["training"]["max_steps"] = 5000
+        c["system"]["save_interval"] = 1000
+        config = self.root / "a2v.yaml"
+        config.write_text(yaml.safe_dump(c))
+        effective, run, command = plan_launch(config, "a2v_5k")
+        self.assertEqual(effective["model"]["wm"]["training_mode_probs"], dict(joint=0., a2v=1.))
+        self.assertEqual(effective["training"]["max_steps"], 5000)
+        self.assertEqual(effective["system"]["save_interval"], 1000)
+        self.assertEqual(effective["system"]["val_interval"], 0)
+        self.assertEqual(effective["dexjoco"]["task"], "click_mouse")
+        self.assertFalse(effective["model"].get("freeze_action_branch", False))
+        self.assertNotIn("--resume_checkpoint", command)
+        self.assertFalse(run.exists())
+        smoke, _, _ = plan_launch(config, "smoke_a2v", smoke_steps=200)
+        self.assertEqual(smoke["training"]["max_steps"], 200)
+        self.assertEqual(smoke["system"]["save_interval"], 200)
+        self.assertEqual(smoke["system"]["val_interval"], 0)
+        for probabilities in (dict(joint=0., a2v=.5), dict(joint=0., a2v=1., t2v=1.)):
+            invalid = deepcopy(c)
+            invalid["model"]["wm"]["training_mode_probs"] = probabilities
+            with self.assertRaises(ValueError):
+                validate_recipe(invalid)
+        c["system"]["save_interval"] = 0
+        config.write_text(yaml.safe_dump(c))
+        with self.assertRaisesRegex(ValueError, "updates/saves"):
+            plan_launch(config, "invalid")
+
     def test_no_dev_must_be_explicit_and_cannot_discard_manifest_dev(self):
         manifest = self.root / "manual.json"
         manifest.write_text(json.dumps(self.document))

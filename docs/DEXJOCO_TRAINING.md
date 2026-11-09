@@ -118,7 +118,8 @@ ZIP 中每任务 100 条示范不自带本项目的 train/dev/test Layout 划分
 此模式是默认 train/dev 工作流的显式替代方案：当前先做 ClickMouse，其他任务以后各自准备。
 全部 100 条 LeRobot episode 进入训练；不创建 dev Catalog，不借训练数据充当验证数据，
 `system.val_interval=0` 且 `periodic_eval.enabled=false`。200 步冒烟也保持验证关闭。
-仍每 5k 保存完整 checkpoint，正式预算 20k，四卡 batch 8（全局 32）、joint:A2V=60:40。
+生成器仍默认每 5k 保存、预算 20k、joint:A2V=60:40；四卡 batch 8（全局 32）。
+当前 ClickMouse 的纯 A2V 实验使用下面的显式覆盖，数据准备无需重做。
 
 生成器只依据 LeRobot episode 编号记录来源标识；源数据缺少可证明原始增强关系或 Layout
 隔离的证据，因此 manifest/release 明确记录 `layout_audit=not_provided` 和 `strict_layout=false`。
@@ -152,6 +153,40 @@ python -m thinker_wm.data_prepare.dexjoco train --config /path/to/click_mouse_tr
 
 一般配置生成入口也可只生成一项：`configs --tasks click_mouse --seed 2026110911`，
 配合已有其他必需参数。未指定 --tasks 时保留六任务行为。
+
+### 纯 A2V：5,000 步，每 1,000 步保存
+
+在已批准的配置中修改以下字段；先备份配置，使用新的 run-name `a2v_5k`。
+原始配置的 seed、release、归一化统计、初始化权重和无验证集策略均保留。
+
+```yaml
+model:
+  freeze_action_branch: false
+  wm:
+    training_mode_probs: {joint: 0.0, a2v: 1.0}
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 1
+  max_steps: 5000
+system:
+  save_interval: 1000
+  val_interval: 0
+```
+
+这是字段覆盖示意，不是完整配置，不能用它替换整个 YAML。
+启动器接受原有 20k/5k 和新增 5k/1k 两种预算；两种预算均可使用原混合模式或纯 A2V。
+`--max-steps` 仍用于显式续训到 30k/60k；此处的 5k 来自 YAML，不传此参数。
+
+```bash
+python -m thinker_wm.data_prepare.dexjoco train --config /path/to/click_mouse_training/configs/stage2_20261109_v1_click_mouse.yaml --run-name a2v_5k --check
+python -m thinker_wm.data_prepare.dexjoco train --config /path/to/click_mouse_training/configs/stage2_20261109_v1_click_mouse.yaml --run-name a2v_5k --execute
+```
+
+该 run 从配置指定的原 Motus 权重独立初始化，不从混合模式 smoke checkpoint 续训。
+训练使用专家轨迹中的真实动作作为条件，只计算视频预测损失，不需要安装或加载 pi0.5。
+保留动作分支可训练，让重新初始化的 22 维动作条件编码器从视频损失获得梯度；
+这不代表训练动作预测目标，纯 A2V 日志中的 `Action: 0.0000` 是预期行为。
+评测时 pi0.5 可另外生成候选动作，再由 A2V 预测未来视频；此闭环接口仍需单独验证。
 
 ## 1 准备冻结的数据清单
 
