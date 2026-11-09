@@ -133,6 +133,7 @@ def validate_manifest(document: dict, *, strict_layout: bool = True) -> list[dic
     if not rows:
         raise ValueError("manifest has no episodes")
     paths, groups, layouts = set(), {}, {}
+    variants = {}
     for row in rows:
         task = task_for(row["task"])
         if row["task"] != task.name:
@@ -144,9 +145,23 @@ def validate_manifest(document: dict, *, strict_layout: bool = True) -> list[dic
                    for k in ("episode_dir", "source_group", "layout_id", "instruction")):
             raise ValueError("every episode needs path, source_group, layout_id, and instruction")
         path = str(Path(row["episode_dir"]).resolve())
-        if path in paths:
-            raise ValueError(f"duplicate episode path: {path}")
-        paths.add(path)
+        data_format = row.get("format", "raw")
+        if data_format not in ("raw", "lerobot_v2"):
+            raise ValueError("format must be raw or lerobot_v2")
+        index = row.get("episode_index") if data_format == "lerobot_v2" else None
+        if data_format == "lerobot_v2":
+            if type(index) is not int or index < 0:
+                raise ValueError("lerobot_v2 requires a nonnegative integer episode_index")
+            variant = row.get("dataset_variant")
+            if variant not in ("rand_obj", "rand_full"):
+                raise ValueError("lerobot_v2 requires explicit dataset_variant")
+            if task.name in variants and variants[task.name] != variant:
+                raise ValueError("cannot mix randomization variants within a task release")
+            variants[task.name] = variant
+        identity = (path, index)
+        if identity in paths:
+            raise ValueError(f"duplicate episode path/index: {identity}")
+        paths.add(identity)
         # Camera and augmentation variants retain the original source_group.
         key = (task.name, row["source_group"])
         if key in groups and groups[key] != split:

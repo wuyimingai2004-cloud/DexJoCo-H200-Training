@@ -7,6 +7,7 @@ import numpy as np
 
 from .contracts import CONTRACT, SOURCE, UPSTREAM_COMMIT, sha256, task_for, validate_manifest, write_json
 from .raw import inspect_video, read_lowdim, video_path
+from .lerobot import LeRobotV2
 
 
 def _catalog(records: list[dict], directory: Path, split: str) -> None:
@@ -67,17 +68,29 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
         records = {"train": [], "dev": []}
         total, mean, m2 = 0, np.zeros(task.dimension), np.zeros(task.dimension)
         audit = []
+        datasets = {}
         for row in rows:
             if row["task"] != task.name or row["split"] == "test":
                 continue
             root = Path(row["episode_dir"])
-            state, action, _ = read_lowdim(root, task)
-            cameras = row.get("cameras", list(task.cameras))
+            data_format = row.get("format", "raw")
+            if data_format == "lerobot_v2":
+                key = (str(root), row["dataset_variant"])
+                if key not in datasets:
+                    datasets[key] = LeRobotV2(root, task, row["dataset_variant"])
+                dataset = datasets[key]
+                state, action, _, paths = dataset.read(row["episode_index"], row["instruction"])
+                cameras = dataset.cameras
+                if "cameras" in row and row["cameras"] != cameras:
+                    raise ValueError("LeRobot camera order must match the declared dataset variant")
+            else:
+                state, action, _ = read_lowdim(root, task)
+                cameras = row.get("cameras", list(task.cameras))
+                paths = [video_path(root, camera) for camera in cameras]
             if (not isinstance(cameras, list) or len(cameras) != task.arms + 1
                     or len(set(cameras)) != len(cameras)
                     or any(Path(k).name != k for k in cameras)):
                 raise ValueError("cameras must be base, right wrist, [left wrist], without duplicates")
-            paths = [video_path(root, camera) for camera in cameras]
             for path in paths:
                 inspect_video(path, len(action))
             episode_id = f"dexjoco:{task.name}:{len(audit):05d}"
@@ -93,7 +106,8 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
                 texts=[dict(index=0, kind="instruction_en", text=row["instruction"],
                             video_range=[0, n], meta=dict(task_name=task.name))],
                 meta=dict(task_name=task.name, scene_id=row["layout_id"],
-                          source_group=row["source_group"], split=row["split"], contract=CONTRACT))
+                          source_group=row["source_group"], split=row["split"], contract=CONTRACT,
+                          input_format=data_format, dataset_variant=row.get("dataset_variant")))
             for kind in ("state", "action"):
                 record[kind] = dict(count=n, storage=dict(type="file", path=str(episode / f"{kind}.npy")),
                                     meta=dict(dimension=task.dimension, normalization="none",
@@ -108,7 +122,9 @@ def prepare_release(manifest: Path, output: Path, names: list[str], *, target_ep
                 mean += delta * count / (total + count)
                 total += count
             audit.append(dict(episode_id=episode_id, split=row["split"], source_group=row["source_group"],
-                              raw_path=str(root), rows=n, camera_sha256={str(p): sha256(p) for p in paths},
+                              raw_path=str(root), rows=n, input_format=data_format,
+                              dataset_variant=row.get("dataset_variant"), episode_index=row.get("episode_index"),
+                              camera_sha256={str(p): sha256(p) for p in paths},
                               state_sha256=sha256(episode / "state.npy"), action_sha256=sha256(episode / "action.npy")))
         stats = dict(schema="dexjoco-action-stats/v1", task=task.name, robot=task.robot, contract=CONTRACT,
                      count=total, mean=mean.tolist(), std=np.maximum(np.sqrt(m2 / total), 1e-3).tolist(),
