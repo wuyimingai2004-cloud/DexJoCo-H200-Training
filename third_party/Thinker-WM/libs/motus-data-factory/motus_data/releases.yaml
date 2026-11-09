@@ -1,0 +1,362 @@
+# Motus Data Factory 内置默认值。
+#
+# 本文件随 motus_data 包一起分发（pip 安装或直接拷贝目录均可），
+# releases.py 在 import 时加载。修改默认值请编辑本文件，不要改代码。
+#
+# default_catalog_root: 未显式传入 catalog_root= 时使用的 Catalog 根目录。
+# releases: 已冻结的数据集 release 注册表，字段对应 EpisodeDatasetRelease。
+
+default_catalog_root: /data/jiyuan.wang/EpisodeCatalogs
+
+releases:
+  - dataset: egoscale_second1700h_batch02
+    release: 20260821_full_v1
+    catalog_path: _20260821/egoscale_second1700h_batch02_full_v1/egoscale_second1700h_batch02.full.20260821_full_v1.episode_catalog.jsonl
+    index_path: _20260821/egoscale_second1700h_batch02_full_v1/egoscale_second1700h_batch02.full.20260821_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    reader_options:
+      egoscale:
+        camera_mode: base_0
+        pose_profile: world_pose_with_validity
+        resize_mode: pad
+    default: true
+
+  - dataset: egoscale_second1700h_batch01
+    release: 20260820_full_v1
+    catalog_path: _20260820/egoscale_second1700h_batch01_full_v1/egoscale_second1700h_batch01.full.20260820_full_v1.episode_catalog.jsonl
+    index_path: _20260820/egoscale_second1700h_batch01_full_v1/egoscale_second1700h_batch01.full.20260820_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    reader_options:
+      egoscale:
+        camera_mode: base_0
+        pose_profile: world_pose_with_validity
+        resize_mode: pad
+    default: true
+
+  - dataset: egoscale_first500h_shard00
+    release: 20260816_shards_v1
+    catalog_path: _20260816/egoscale_first500h_shards_v1/egoscale_first500h.shard00_of10.20260816_shards_v1.episode_catalog.jsonl
+    index_path: _20260816/egoscale_first500h_shards_v1/egoscale_first500h.shard00_of10.20260816_shards_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    reader_options:
+      egoscale:
+        camera_mode: base_0
+        pose_profile: world_pose_with_validity
+        resize_mode: pad
+    default: true
+
+  - dataset: egoscale_first500h_remaining90pct
+    release: 20260816_shards_v1
+    catalog_path: _20260816/egoscale_first500h_shards_v1/egoscale_first500h.remaining90pct.20260816_shards_v1.episode_catalog.jsonl
+    index_path: _20260816/egoscale_first500h_shards_v1/egoscale_first500h.remaining90pct.20260816_shards_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    reader_options:
+      egoscale:
+        camera_mode: base_0
+        pose_profile: world_pose_with_validity
+        resize_mode: pad
+    default: true
+
+  - dataset: agibot_beta
+    release: 20260723_concise_v2
+    catalog_path: _20260723/agibot_beta/agibot_beta_full_20260723_concise_v2.episode_catalog.jsonl
+    index_path: _20260723/agibot_beta/agibot_beta_full_20260723_concise_v2.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [agibot_beta]
+    default: true
+
+  - dataset: agibot_beta_parallel_gripper
+    release: 20260805_full_v1
+    catalog_path: _20260805/agibot_beta_effector_profiles_v1/agibot_beta_parallel_gripper.20260805_full_v1.episode_catalog.jsonl
+    index_path: _20260805/agibot_beta_effector_profiles_v1/agibot_beta_parallel_gripper.20260805_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [agibot_beta]
+    reader_options:
+      agibot_beta:
+        normalization_artifacts:
+          parallel_gripper: /data/jiyuan.wang/NormalizationArtifacts/_20260805/agibot_beta_effector_profiles_v1/agibot_beta_parallel_gripper.native_zscore_v1.json
+    default: true
+
+  - dataset: agibot_beta_dexterous_hand
+    release: 20260805_full_v1
+    catalog_path: _20260805/agibot_beta_effector_profiles_v1/agibot_beta_dexterous_hand.20260805_full_v1.episode_catalog.jsonl
+    index_path: _20260805/agibot_beta_effector_profiles_v1/agibot_beta_dexterous_hand.20260805_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [agibot_beta]
+    reader_options:
+      agibot_beta:
+        normalization_artifacts:
+          dexterous_hand: /data/jiyuan.wang/NormalizationArtifacts/_20260805/agibot_beta_effector_profiles_v1/agibot_beta_dexterous_hand.native_zscore_v1.json
+        excluded_episode_ids:
+          - agibot_beta:554:913085
+    default: true
+
+  - dataset: openvid
+    release: 20260730_full_v1
+    catalog_path: _20260730/openvid/openvid_1m_full_20260730.episode_catalog.jsonl
+    index_path: _20260730/openvid/openvid_1m_full_20260730.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    default: true
+
+  - dataset: libero_10
+    release: 20260810_full_v1
+    catalog_path: _20260810/libero_parquet_v1/libero_10.libero_parquet_v1.episode_catalog.jsonl
+    index_path: _20260810/libero_parquet_v1/libero_10.libero_parquet_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [libero]
+    reader_options:
+      libero:
+        camera_mode: main
+        resize_mode: pad
+        normalization_mode: zscore
+        statistics_path: /data/chen.liao/Libero_parquet/meta/stats.json
+    default: true
+
+  - dataset: libero_goal
+    release: 20260810_full_v1
+    catalog_path: _20260810/libero_parquet_v1/libero_goal.libero_parquet_v1.episode_catalog.jsonl
+    index_path: _20260810/libero_parquet_v1/libero_goal.libero_parquet_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [libero]
+    reader_options:
+      libero:
+        camera_mode: main
+        resize_mode: pad
+        normalization_mode: zscore
+        statistics_path: /data/chen.liao/Libero_parquet/meta/stats.json
+    default: true
+
+  - dataset: libero_object
+    release: 20260810_full_v1
+    catalog_path: _20260810/libero_parquet_v1/libero_object.libero_parquet_v1.episode_catalog.jsonl
+    index_path: _20260810/libero_parquet_v1/libero_object.libero_parquet_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [libero]
+    reader_options:
+      libero:
+        camera_mode: main
+        resize_mode: pad
+        normalization_mode: zscore
+        statistics_path: /data/chen.liao/Libero_parquet/meta/stats.json
+    default: true
+
+  - dataset: libero_spatial
+    release: 20260810_full_v1
+    catalog_path: _20260810/libero_parquet_v1/libero_spatial.libero_parquet_v1.episode_catalog.jsonl
+    index_path: _20260810/libero_parquet_v1/libero_spatial.libero_parquet_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 20.0
+    action_magnitude_guard_sources: [libero]
+    reader_options:
+      libero:
+        camera_mode: main
+        resize_mode: pad
+        normalization_mode: zscore
+        statistics_path: /data/chen.liao/Libero_parquet/meta/stats.json
+    default: true
+
+  - dataset: egoverse_aria_bimanual
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_aria_bimanual.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_aria_bimanual.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: egoverse_aria_left_arm
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_aria_left_arm.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_aria_left_arm.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: egoverse_aria_right_arm
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_aria_right_arm.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_aria_right_arm.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: egoverse_eva_bimanual
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_eva_bimanual.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_eva_bimanual.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: egoverse_scale_bimanual
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_scale_bimanual.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_scale_bimanual.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: egoverse_mecka_freeform_bimanual
+    release: 20260730_first6_v1
+    catalog_path: _20260730/egoverse_first6_v1/egoverse_mecka_freeform_bimanual.20260730_first6_v1.episode_catalog.jsonl
+    index_path: _20260730/egoverse_first6_v1/egoverse_mecka_freeform_bimanual.20260730_first6_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_num_workers: 0
+    default_queue_size: 2
+    action_magnitude_guard_threshold: null
+    default: true
+
+  - dataset: agibot
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/agibot.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/agibot.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [agibot]
+    default: true
+
+  - dataset: robotwin_aloha
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotwin_aloha.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotwin_aloha.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotwin]
+    default: true
+
+  - dataset: robotwin_ur5
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotwin_ur5.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotwin_ur5.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotwin]
+    default: true
+
+  - dataset: robotwin_arx
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotwin_arx.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotwin_arx.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotwin]
+    default: true
+
+  - dataset: robotwin_piper
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotwin_piper.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotwin_piper.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotwin]
+    default: true
+
+  - dataset: robotmind_tianyi
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotmind_tianyi.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotmind_tianyi.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotmind]
+    default: true
+
+  - dataset: robotmind_arkmobile
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotmind_arkmobile.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotmind_arkmobile.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotmind]
+    default: true
+
+  - dataset: robotmind_ark
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotmind_ark.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotmind_ark.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotmind]
+    default: true
+
+  - dataset: robotmind_tienkung
+    release: 20260727_full_v1
+    catalog_path: _20260727/ten_source_full_v1/robotmind_tienkung.20260727_full_v1.episode_catalog.jsonl
+    index_path: _20260727/ten_source_full_v1/robotmind_tienkung.20260727_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotmind]
+    default: true
+
+  - dataset: robotwin_3d
+    release: 20260908_flexpi_v1
+    catalog_path: robotwin_3d/robotwin_3d.episode_catalog.jsonl
+    index_path: robotwin_3d/robotwin_3d.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotwin_3d]
+    reader_options:
+      robotwin_3d:
+        resize_mode: pad
+    default: true
+
+  - dataset: robotmind_agilex
+    release: 20260728_full_v1
+    catalog_path: _20260728/robotmind_agilex/robotmind_agilex.20260728_full_v1.episode_catalog.jsonl
+    index_path: _20260728/robotmind_agilex/robotmind_agilex.20260728_full_v1.episode_catalog.index.sqlite
+    default_video_size: [480, 640]
+    default_queue_size: 2
+    action_magnitude_guard_threshold: 100.0
+    action_magnitude_guard_sources: [robotmind]
+    default: true

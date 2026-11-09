@@ -1,0 +1,71 @@
+# 非可启动配置片段：当前首轮 RoboTwin 50 Hz / V15@52000。
+# 合并进已确认名称的正式配置；保留完整数据/深度配置及 checkpoint 路径。
+# 正式 training.seed 也必须选新的非零值。RoboDojo 需重新核对频率和字段。
+common:
+  control_hz: 50
+  video_action_freq_ratio: 4       # 视频 12.5 Hz，动作 50 Hz
+  num_video_frames: 16             # 当前 RGB 另算；4 个未来 AR 块
+  action_chunk_size: 64            # 4×16 步，共 1.28 s；默认只推理 1 块 0.32 s
+model:
+  wm:
+    action_t_downsample: 1
+    depth_condition_mode: rgb_only
+    depth_share_video_noise: false
+    independent_modality_noise: true
+    temporal_mode: block_causal
+    ar_latents_per_block: 1
+    ar_packed_teacher_forcing: true
+    ar_target_reads_earlier_targets: false
+    ar_cut_probs: null
+    temporal_und_reads: observed
+    world_mode_prob: 0.0            # 不可与显式混合概率叠加
+    training_mode_probs:            # 起始实验比例，不代表最优值
+      joint: 0.60
+      a2v: 0.40                    # 指定动作 → 未来 RGB + 深度；不采样 IDM
+    # Joint: 成对扰动过去块 RGB/连续关节动作；A2V: 仅 RGB，指定动作固定。
+    # 以下为待验证起点，不是物理一致性的保证。
+    rgb_prefix_error_enable: true
+    rgb_prefix_error_prob: 0.25     # 每次调用 25% 概率；其余保持原始前缀
+    rgb_prefix_error_scale: 0.5
+    rgb_prefix_error_max_rms_ratio: 0.1 # FP32 扰动 RMS ≤ 对应 RGB latent RMS 的 10%
+    rgb_prefix_error_warmup_steps: 100  # 每个模式先收集 100 次训练前向
+    rgb_prefix_error_capacity: 64   # 每个模式/来源/块位置各 64 条（batch 8 时约 8 次前向）
+    rgb_prefix_error_max_mb: 128.0  # 每个 rank CPU 缓存预算（480×640 约 230 KB/条）；重启清空并重新预热
+    joint_action_prefix_error_enable: true
+    # 当前 RoboTwin/V15 unified 14 维 identity 布局；保留夹爪列 6、13。
+    # 迁移 RoboDojo/其他动作布局时必须重新核对，不能原样套用列号。
+    joint_action_prefix_error_dims: [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]
+    joint_action_prefix_error_scale: 0.25
+    joint_action_prefix_error_max_abs: 0.02 # zscore 归一化单位，非弧度/米
+    modality_dropout_video: 0.0     # 显式混合时实现强制保留 RGB/action
+    modality_dropout_action: 0.0
+    modality_dropout_depth: 0.0
+    zero_action_loss_force_max_noise: false
+    history_enable: true
+    history_spatial_pool: 2
+    history_logit_bias_init: -6.0
+    recovery_condition_enable: false # 经验证的补救数据到位后再开
+history:
+  enable: true
+  sources: [robotwin_3d]
+  strict_sources: true
+  seed: 20261015
+  robotwin_catalog: /code1/zxw_data/pretrain/ThinkerWAM-Depth-Action-RGB-RoboTwin/tmp/catalogs/robotwin_3d_seen100/robotwin_3d.episode_catalog.jsonl
+  robotwin_resize_mode: pad
+  recent_frames: 5                  # 也支持 9/13
+  sparse_slots: 8
+  sparse_stride_s: 1.0
+  sparse_jitter: 0.0
+  include_episode_start: false
+  events:
+    enabled: true
+    gripper_indices: [6, 13]
+    closed_threshold: 0.3
+    open_threshold: 0.7
+    after_s: 0.08
+    cooldown_s: 0.16
+    max_frames: 8
+    capacity: 32
+# 运行时默认 generate_action；A2V 通过 predict_outcome 按需调用。
+# A2V 复用原 action_conditioned_world/FDM；IDM 接口仅保留旧配置兼容。
+# 已合并为正式配置 configs/rsi_robotwin_v1.yaml；修改配方请改正式配置，本片段仅作参考。
